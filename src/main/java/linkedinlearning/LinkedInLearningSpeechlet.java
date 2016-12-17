@@ -39,8 +39,6 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
  *
  * LinkedIn Learning Alex Skill adapted from SavvyConsumer sample.
  *
- * This sample shows how to create a Lambda function for handling Alexa Skill requests that:
- *
  * <ul>
  * <li><b>Web service</b>: Communicate with an the Amazon associates API to get best seller
  * information using aws-lib</li>
@@ -57,13 +55,13 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
  * <p>
  * <b>Dialog model</b>
  * <p>
- * User: "Alexa, open Savvy Consumer"
+ * User: "Alexa, open LinkedIn Learning"
  * <p>
- * Alexa: "Welcome to the Savvy Consumer. For which category do you want to hear the best sellers?"
+ * Alexa: "Welcome to the LinkedIn Learning. For which category do you want to hear the popular content?"
  * <p>
- * User: "books"
+ * User: "courses"
  * <p>
- * Alexa: "Getting the best sellers for books. The top seller for books is .... Would you like to
+ * Alexa: "Getting the popular courses. The most popular course is .... Would you like to
  * hear more?"
  * <p>
  * User: "yes"
@@ -74,30 +72,15 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
  * <p>
  * <b>One-shot model</b>
  * <p>
- * User: "Alexa, ask Savvy Consumer for top books"
+ * User: "Alexa, ask LinkedIn Learning for popular courses"
  * <p>
- * Alexa: "Getting the best sellers for books. The top seller for books is .... Would you like to
+ * Alexa: "Getting the popular courses. The most popular course is .... Would you like to
  * hear more?"
  * <p>
  * User: "No"
  */
 public class LinkedInLearningSpeechlet implements Speechlet {
     private static final Logger log = LoggerFactory.getLogger(LinkedInLearningSpeechlet.class);
-
-    /**
-     * Your AWS Access Key ID, as taken from the AWS Your Account page.
-     */
-    private static final String AWS_ACCESS_KEY_ID = "Your AWS Access Key";
-
-    /**
-     * Your AWS Secret Key corresponding to the above ID, as taken from the AWS Your Account page.
-     */
-    private static final String AWS_SECRET_KEY = "Your AWS Secret Key";
-
-    /**
-     * The Associates Tag.
-     */
-    private static final String AWS_ASSOCIATES_TAG = "associates_tag";
 
     /**
      * The key to find the current index from the session attributes.
@@ -125,13 +108,6 @@ public class LinkedInLearningSpeechlet implements Speechlet {
     private static final String SLOT_CATEGORY = "Category";
 
     /**
-     * Mapping of the browse node ID to the category for the Amazon catalog. Use a tree map so gets
-     * can be case insensitive.
-     */
-    private static final Map<String, String> browseNodeMap = new TreeMap<String, String>(
-            String.CASE_INSENSITIVE_ORDER);
-
-    /**
      * A Mapping of alternative ways a user will say a category to how Amazon has defined the
      * category. Use a tree map so gets can be case insensitive.
      */
@@ -139,56 +115,14 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             String.CASE_INSENSITIVE_ORDER);
 
     static {
-        spokenNameToCategory.put("movies", "DVD");
-        spokenNameToCategory.put("movie", "DVD");
-        spokenNameToCategory.put("novel", "Books");
-        spokenNameToCategory.put("novels", "Books");
-
-        browseNodeMap.put("Apparel", "1036592");
-        browseNodeMap.put("Appliances", "2619526011");
-        browseNodeMap.put("ArtsAndCrafts", "2617942011");
-        browseNodeMap.put("Automotive", "15690151");
-        browseNodeMap.put("Baby", "165797011");
-        browseNodeMap.put("Beauty", "11055981");
-        browseNodeMap.put("Books", "1000");
-        browseNodeMap.put("Classical", "301668");
-        browseNodeMap.put("Collectibles", "4991426011");
-        browseNodeMap.put("DVD", "2625374011");
-        browseNodeMap.put("DigitalMusic", "624868011");
-        browseNodeMap.put("Electronics", "493964");
-        browseNodeMap.put("GiftCards", "2864120011");
-        browseNodeMap.put("GourmetFood", "16310211");
-        browseNodeMap.put("Grocery", "16310211");
-        browseNodeMap.put("HealthPersonalCare", "3760931");
-        browseNodeMap.put("HomeGarden", "1063498");
-        browseNodeMap.put("Industrial", "16310161");
-        browseNodeMap.put("Jewelry", "2516784011");
-        browseNodeMap.put("KindleStore", "133141011");
-        browseNodeMap.put("Kitchen", "284507");
-        browseNodeMap.put("LawnAndGarden", "3238155011");
-        browseNodeMap.put("MP3Downloads", "624868011");
-        browseNodeMap.put("Magazines", "599872");
-        browseNodeMap.put("Miscellaneous", "10304191");
-        browseNodeMap.put("MobileApps", "2350150011");
-        browseNodeMap.put("Music", "301668");
-        browseNodeMap.put("MusicalInstruments", "11965861");
-        browseNodeMap.put("OfficeProducts", "1084128");
-        browseNodeMap.put("OutdoorLiving", "2972638011");
-        browseNodeMap.put("PCHardware", "541966");
-        browseNodeMap.put("PetSupplies", "2619534011");
-        browseNodeMap.put("Photo", "502394");
-        browseNodeMap.put("Shoes", "672124011");
-        browseNodeMap.put("Software", "409488");
-        browseNodeMap.put("SportingGoods", "3375301");
-        browseNodeMap.put("Tools", "468240");
-        browseNodeMap.put("Toys", "165795011");
-        browseNodeMap.put("UnboxVideo", "2858778011");
-        browseNodeMap.put("VHS", "2625374011");
-        browseNodeMap.put("Video", "404276");
-        browseNodeMap.put("VideoGames", "11846801");
-        browseNodeMap.put("Watches", "378516011");
-        browseNodeMap.put("Wireless", "2335753011");
-        browseNodeMap.put("WirelessAccessories", "13900851");
+        spokenNameToCategory.put("courses", "COURSE");
+        spokenNameToCategory.put("course", "COURSE");
+        spokenNameToCategory.put("videos", "VIDEO");
+        spokenNameToCategory.put("video", "VIDEO");
+        spokenNameToCategory.put("learning paths", "LEARNING_PATH");
+        spokenNameToCategory.put("learning path", "LEARNING_PATH");
+        spokenNameToCategory.put("paths", "LEARNING_PATH");
+        spokenNameToCategory.put("path", "LEARNING_PATH");
     }
 
     @Override
@@ -207,13 +141,12 @@ public class LinkedInLearningSpeechlet implements Speechlet {
                 session.getSessionId());
 
         String speechOutput =
-                "Welcome to the Savvy Consumer. For which category do you want to "
-                        + "hear the best sellers?";
+                "Welcome to Linked In Learning. For which category do you want to "
+                        + "hear the most popular content?";
         String repromptText = "Please choose a category by saying, " +
-                "books <break time=\"0.2s\" /> " +
-                "fashion <break time=\"0.2s\" /> " +
-                "movie <break time=\"0.2s\" /> " +
-                "kitchen";
+                "courses <break time=\"0.2s\" /> " +
+                "videos <break time=\"0.2s\" /> " +
+                "learning paths";
 
         // Here we are prompting the user for input
         return newAskResponse(speechOutput, false, "<speak>" + repromptText + "</speak>", true);
@@ -263,15 +196,14 @@ public class LinkedInLearningSpeechlet implements Speechlet {
     }
 
     /**
-     * Calls the Product Advertising API to get the top sellers for a category. Then Creates a
+     * Calls Learning API to get the top content for a given category. Then Creates a
      * {@code SpeechletResponse} for the intent.
      *
      * @param intent
      *            intent for the request
      * @return SpeechletResponse spoken and visual response for the given intent
      * @throws SpeechletException
-     * @see <a href="https://affiliate-program.amazon.com/gp/advertising/api/detail/main.html">
-     *      Product Advertising API </a>
+     * @see <a href="https://www.linkedin.com/learning/">LinkedIn Learning API </a>
      */
     private SpeechletResponse getTopSellers(final Intent intent, final Session session)
             throws SpeechletException {
@@ -280,7 +212,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
         // Check if we are in a session, and if so then reprompt for yes or no
         if (session.getAttributes().containsKey(SESSION_CURRENT_INDEX)) {
             String speechOutput = "Would you like to hear more?";
-            repromptText = "Would you like to hear more top sellers? Please say yes or no.";
+            repromptText = "Would you like to hear more popular ones? Please say yes or no.";
             return newAskResponse(speechOutput, false, repromptText, false);
         }
 
@@ -288,6 +220,8 @@ public class LinkedInLearningSpeechlet implements Speechlet {
 
         // Find the lookup word for the given category.
         String lookupCategory = getLookupWord(categorySlot);
+        if (lookupCategory == null)
+          lookupCategory = "COURSE";
 
         // Remove the periods to fix things like d. v. d.s to dvds
         String category = categorySlot.getValue().replaceAll("\\.\\s*", "");
@@ -296,11 +230,11 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             List<String> items = fetchTitles(lookupCategory);
 
             // Configure the card and speech output.
-            String cardTitle = "Top Sellers for " + category;
+            String cardTitle = "Popular in " + category;
             StringBuilder cardOutput = new StringBuilder();
-            cardOutput.append("The Top Sellers for ").append(category).append(" are: ");
+            cardOutput.append("Popular in ").append(category).append(" are: ");
             StringBuilder speechOutput = new StringBuilder();
-            speechOutput.append("Here are the top sellers for ").append(category).append(". ");
+            speechOutput.append("Here are the popular in ").append(category).append(". ");
             session.setAttribute(SESSION_CURRENT_CATEGORY, category);
 
             // Iterate through the response and set the intial response, as well as the
@@ -311,7 +245,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
                 if (numberInList == 1) {
                     // Set the speech output and current index for just the top item in the list.
                     // Other results are paginated based on subsequent user intents
-                    speechOutput.append("The top seller is: ").append(item).append(". ");
+                    speechOutput.append("The most popular is: ").append(item).append(". ");
                     session.setAttribute(SESSION_CURRENT_INDEX, numberInList);
                 }
 
@@ -324,7 +258,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             if (i == 0) {
                 // There were no items returned for the specified item.
                 SsmlOutputSpeech output = new SsmlOutputSpeech();
-                output.setSsml("<speak>I'm sorry, I cannot get the top sellers for " + category
+                output.setSsml("<speak>I'm sorry, I cannot get the popular in " + category
                         + " at this time. Please try again later. Goodbye.</speak>");
                 return SpeechletResponse.newTellResponse(output);
             }
@@ -347,10 +281,9 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             String speechOutput = "I'm not sure what the category is, please try again";
             repromptText =
                     "I'm not sure what the category is, you can say " +
-                    "books <break time=\"0.2s\" /> " +
-                    "fashion <break time=\"0.2s\" /> " +
-                    "movie <break time=\"0.2s\" /> " +
-                    "kitchen.";
+                "courses <break time=\"0.2s\" /> " +
+                "videos <break time=\"0.2s\" /> " +
+                "learning paths.";
             return newAskResponse(speechOutput, false, "<speak>" + repromptText + "</speak>", true);
         }
     }
@@ -363,42 +296,10 @@ public class LinkedInLearningSpeechlet implements Speechlet {
     private List<String> fetchTitles(String category) throws SpeechletException {
         List<String> titles = new LinkedList<String>();
         try {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            DocumentBuilder db = dbf.newDocumentBuilder();
-            // Make the actual http call and get the xml response.
-            Document doc = db.parse(getRequestUrl(category));
-            NodeList nodeList = doc.getElementsByTagName("Title");
-
-            for (int i = 0; i < nodeList.getLength(); i++) {
-                Node node = nodeList.item(i);
-                titles.add(node.getTextContent());
-            }
+          return LinkedInLearningApiHelper.summarize(LinkedInLearningApiHelper.search(category, ""), category);
         } catch (Exception e) {
-            throw new SpeechletException(e);
+          throw new SpeechletException(e);
         }
-        return titles;
-    }
-
-    /**
-     * Gets the request URL with the proper parameters and signs it.
-     */
-    private String getRequestUrl(String category) throws InvalidKeyException,
-            IllegalArgumentException, UnsupportedEncodingException, NoSuchAlgorithmException {
-        // Set up the signed requests helper
-        SignedRequestsHelper helper =
-                SignedRequestsHelper.getInstance("ecs.amazonaws.com", AWS_ACCESS_KEY_ID,
-                        AWS_SECRET_KEY);
-
-        Map<String, String> params = new HashMap<String, String>();
-        params.put("Service", "AWSECommerceService");
-        params.put("Version", "2009-10-01");
-        params.put("Operation", "ItemSearch");
-        params.put("SearchIndex", category);
-        params.put("BrowseNode", browseNodeMap.get(category));
-        params.put("ResponseGroup", "Small");
-        params.put("AssociateTag", AWS_ASSOCIATES_TAG);
-
-        return helper.sign(params);
     }
 
     /**
@@ -421,9 +322,9 @@ public class LinkedInLearningSpeechlet implements Speechlet {
                     } else {
                         speechOutput.append("And the <say-as interpret-as=\"ordinal\">"
                                 + currentItemNumberInList
-                                + "</say-as> top seller is. " + currentString
-                                + ". Those were the 10 top sellers in Amazon's "
-                                + session.getAttribute(SESSION_CURRENT_CATEGORY) + " department");
+                                + "</say-as> most popular content is. " + currentString
+                                + ". Those were the 10 most popular in Linked In Learning "
+                                + session.getAttribute(SESSION_CURRENT_CATEGORY) + " content");
                     }
                     currentIndex++;
                     currentItemNumberInList++;
@@ -435,7 +336,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             if (currentIndex < MAX_ITEMS) {
                 speechOutput.append(" Would you like to hear more?");
                 return newAskResponse(speechOutput.toString(), true,
-                        "Would you like to hear more top sellers? Please say yes or no.", false);
+                        "Would you like to hear more popular content? Please say yes or no.", false);
             } else {
                 SsmlOutputSpeech output = new SsmlOutputSpeech();
                 output.setSsml("<speak>" + speechOutput.toString() + "</speak>");
@@ -445,13 +346,12 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             // The user attempted to get more results without ever uttering the category.
             // Reprompt the user for the proper usage.
             String speechOutput =
-                    "Welcome to the Savvy Consumer. For which category do you want "
-                            + "to hear the best sellers?.";
+                    "Welcome to the Linked In Learning. For which category do you want "
+                            + "to hear the popular content?.";
             String repromptText = "Please choose a category by saying, " +
-                    "books <break time=\"0.2s\" /> " +
-                    "fashion <break time=\"0.2s\" /> " +
-                    "movie <break time=\"0.2s\" /> " +
-                    "kitchen";
+                "courses <break time=\"0.2s\" /> " +
+                "videos <break time=\"0.2s\" /> " +
+                "learning paths";
             return newAskResponse(speechOutput, false, "<speak>" + repromptText + "</speak>", true);
         }
     }
@@ -480,27 +380,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             // Check for spoken names
             lookupCategory = spokenNameToCategory.get(category);
             if (lookupCategory == null) {
-                // The lookup category wasn't in the spoken names map. Look for it in the browse
-                // node map.
-                for (String key : browseNodeMap.keySet()) {
-                    if (key.equalsIgnoreCase(category)) {
-                        lookupCategory = key;
-                        break;
-                    }
-                }
-            }
-
-            if (lookupCategory == null) {
-                // The lookup category still wasn't found so try to see if the keys contain the
-                // category
-                for (String key : browseNodeMap.keySet()) {
-                    if (key.toLowerCase().contains(category)
-                            || category.contains(key.toLowerCase())) {
-                        lookupCategory = key;
-                        break;
-                    }
-                }
-
+              lookupCategory = "COURSE";
             }
         }
 
@@ -512,14 +392,14 @@ public class LinkedInLearningSpeechlet implements Speechlet {
      */
     private SpeechletResponse getHelp() {
         String speechOutput =
-                "You can ask for the best sellers on Amazon for a given category. "
-                        + "For example, get best sellers for books, or you can say exit. "
+                "You can ask for the popular content on Linked In Learning for a given category. "
+                        + "For example, get popular courses, or you can say exit. "
                         + "Now, what can I help you with?";
         String repromptText =
                 "I'm sorry I didn't understand that. You can say things like," +
-                "books <break time=\"0.2s\" /> " +
-                "movies <break time=\"0.2s\" /> " +
-                "music. Or you can say exit. Now, what can I help you with?";
+                "courses <break time=\"0.2s\" /> " +
+                "videos <break time=\"0.2s\" /> " +
+                "learning paths. Or you can say exit. Now, what can I help you with?";
         return newAskResponse(speechOutput, false, "<speak>" + repromptText + "</speak>", true);
     }
 

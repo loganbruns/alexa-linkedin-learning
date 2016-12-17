@@ -1,9 +1,10 @@
-TopSellers get top sellers for {Category}
-TopSellers get best sellers for {Category}
+TopSellers get popular content for {Category}
+TopSellers get popular in {Category}
 TopSellers get me {Category}
 TopSellers top {Category}
-TopSellers top products in {Category}
-TopSellers top sellers in {Category}
+TopSellers top content in {Category}
+TopSellers popular {Category}
+TopSellers best {Category}
 TopSellers {Category}
 
 HearMore yes
