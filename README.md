@@ -1,6 +1,8 @@
 # Unofficial LinkedIn Learning Alexa Skill
 
 ## Features (so far..)
+
+### Current
 This skill supports:
 
 - Communicates with learning-api to find courses, videos, and learning paths.
@@ -8,6 +10,15 @@ This skill supports:
   If the user provides an incorrect slot in a one-shot model, it will direct to the dialog model
 - Uses pagination: Handles paginating a list of responses to avoid overwhelming the learner.
 - Uses SSML: Using SSML tags to control how Alexa renders the text-to-speech.
+
+### Future
+Features to be considered for the future:
+
+- Improve card formatting and include links to courses, videos, and learning paths
+- "Teach me ..." to do key word searches for courses, videos, and learning paths
+- Support launching learning app
+- Support playing content
+- Account binding (to be able to access user specific data and privileges.)
 
 ## Setup
 Until this has more features and is published you have to deploy it as a lambda yourself and configure a private Alexa skill to use the Lambda.
