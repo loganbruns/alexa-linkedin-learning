@@ -346,7 +346,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             // The user attempted to get more results without ever uttering the category.
             // Reprompt the user for the proper usage.
             String speechOutput =
-                    "Welcome to the Linked In Learning. For which category do you want "
+                    "Welcome to Linked In Learning. For which category do you want "
                             + "to hear the popular content?.";
             String repromptText = "Please choose a category by saying, " +
                 "courses <break time=\"0.2s\" /> " +
