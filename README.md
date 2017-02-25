@@ -59,9 +59,14 @@ Until this has more features and is published you have to deploy it as a lambda 
              to hear more?"
      User:  "No"
 
+     User:  "Alexa, ask LinkedIn Learning about Java"
+     Alexa: "Here are the courses about Java. The most popular is .... Would you like
+             to hear more?"
+     User:  "No"
+
 ### Dialog model:
      User:  "Alexa, open LinkedIn Learning"
-     Alexa: "Welcome to LinkedIn Learning. For which category do you want to hear the popular content?"
+     Alexa: "Welcome to LinkedIn Learning. You can ask about a particular topic or ask for the most popular content in a category."
      User:  "courses"
      Alexa: "Here are the popular in courses. The most popular is .... Would you like
              to hear more?"

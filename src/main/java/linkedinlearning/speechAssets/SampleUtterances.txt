@@ -1,11 +1,25 @@
 TopSellers get popular content for {Category}
 TopSellers get popular in {Category}
-TopSellers get me {Category}
 TopSellers top {Category}
 TopSellers top content in {Category}
 TopSellers popular {Category}
 TopSellers best {Category}
 TopSellers {Category}
+
+TeachMe teach me about {Topic}
+TeachMe teach me about {Software}
+TeachMe tell me about {Topic}
+TeachMe tell me about {Software}
+TeachMe help me with {Topic}
+TeachMe help me with {Software}
+TeachMe show me {Topic} in {Category}
+TeachMe show me {Software} in {Category}
+TeachMe about {Topic}
+TeachMe about {Software}
+TeachMe about {Topic} in {Category}
+TeachMe about {Software} in {Category}
+TeachMe {Topic}
+TeachMe {Software}
 
 HearMore yes
 HearMore yep

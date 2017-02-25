@@ -10,6 +10,23 @@
       ]
     },
     {
+      "intent": "TeachMe",
+      "slots": [
+        {
+          "name": "Category",
+          "type": "LIST_OF_CATEGORIES"
+        },
+        {
+          "name": "Topic",
+          "type": "LIST_OF_TOPICS"
+        },
+        {
+          "name": "Software",
+          "type": "LIST_OF_SOFTWARE"
+        }
+      ]
+    },
+    {
       "intent": "HearMore"
     },
     {

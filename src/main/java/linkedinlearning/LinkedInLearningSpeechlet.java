@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -106,6 +107,8 @@ public class LinkedInLearningSpeechlet implements Speechlet {
      * The Category slot.
      */
     private static final String SLOT_CATEGORY = "Category";
+    private static final String SLOT_TOPIC = "Topic";
+    private static final String SLOT_SOFTWARE = "Software";
 
     /**
      * A Mapping of alternative ways a user will say a category to how Amazon has defined the
@@ -141,8 +144,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
                 session.getSessionId());
 
         String speechOutput =
-                "Welcome to Linked In Learning. For which category do you want to "
-                        + "hear the most popular content?";
+          "Welcome to Linked In Learning. You can ask about a particular topic or ask for the most popular content in a category.";
         String repromptText = "Please choose a category by saying, " +
                 "courses <break time=\"0.2s\" /> " +
                 "videos <break time=\"0.2s\" /> " +
@@ -163,6 +165,8 @@ public class LinkedInLearningSpeechlet implements Speechlet {
 
         if ("TopSellers".equals(intentName)) {
             return getTopSellers(intent, session);
+        } else if ("TeachMe".equals(intentName)) {
+            return teachMe(intent, session);
         } else if ("HearMore".equals(intentName)) {
             return getNextPageOfItems(intent, session);
         } else if ("DontHearMore".equals(intentName)) {
@@ -182,7 +186,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
 
             return SpeechletResponse.newTellResponse(outputSpeech);
         } else {
-            throw new SpeechletException("Invalid Intent");
+            throw new SpeechletException("Invalid Intent: " + intentName);
         }
     }
 
@@ -227,7 +231,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
         String category = categorySlot.getValue().replaceAll("\\.\\s*", "");
 
         if (lookupCategory != null) {
-            List<String> items = fetchTitles(lookupCategory);
+          List<String> items = fetchTitles(lookupCategory, "");
 
             // Configure the card and speech output.
             String cardTitle = "Popular in " + category;
@@ -289,14 +293,121 @@ public class LinkedInLearningSpeechlet implements Speechlet {
     }
 
     /**
+     * Calls Learning API to get content for a given category and keywords. Then Creates a
+     * {@code SpeechletResponse} for the intent.
+     *
+     * @param intent
+     *            intent for the request
+     * @return SpeechletResponse spoken and visual response for the given intent
+     * @throws SpeechletException
+     * @see <a href="https://www.linkedin.com/learning/">LinkedIn Learning API </a>
+     */
+    private SpeechletResponse teachMe(final Intent intent, final Session session)
+            throws SpeechletException {
+        String repromptText = "";
+
+        // Check if we are in a session, and if so then reprompt for yes or no
+        if (session.getAttributes().containsKey(SESSION_CURRENT_INDEX)) {
+            String speechOutput = "Would you like to hear more?";
+            repromptText = "Would you like to hear more ones? Please say yes or no.";
+            return newAskResponse(speechOutput, false, repromptText, false);
+        }
+
+        Slot categorySlot = intent.getSlot(SLOT_CATEGORY);
+
+        // Find the lookup word for the given category.
+        String lookupCategory = getLookupWord(categorySlot);
+        if (lookupCategory == null)
+          lookupCategory = "COURSE";
+
+        // Remove the periods to fix things like d. v. d.s to dvds
+        String category;
+        if ((categorySlot != null) && (categorySlot.getValue() != null))
+          category = categorySlot.getValue().replaceAll("\\.\\s*", "");
+        else
+          category = "courses";
+
+        String keywords = null;
+        Slot keywordSlot = intent.getSlot(SLOT_TOPIC);
+        if ((keywordSlot != null) && (keywordSlot.getValue() != null))
+          keywords = keywordSlot.getValue();
+        else {
+          keywordSlot = intent.getSlot(SLOT_SOFTWARE);
+          if ((keywordSlot != null) && (keywordSlot.getValue() != null))
+            keywords = keywordSlot.getValue();
+        }
+
+        if (lookupCategory != null) {
+          List<String> items = fetchTitles(lookupCategory, keywords);
+
+          // Configure the card and speech output.
+          String cardTitle = "Popular " + category + " about " + keywords;
+            StringBuilder cardOutput = new StringBuilder();
+            cardOutput.append("Here are the ").append(category).append(" about ").append(keywords).append(": ");
+            StringBuilder speechOutput = new StringBuilder();
+            speechOutput.append("Here are the ").append(category).append(" about ").append(keywords).append(".");
+            session.setAttribute(SESSION_CURRENT_CATEGORY, category);
+
+            // Iterate through the response and set the intial response, as well as the
+            // session attributes for pagination.
+            int i = 0;
+            for (String item : items) {
+                int numberInList = i + 1;
+                if (numberInList == 1) {
+                    // Set the speech output and current index for just the top item in the list.
+                    // Other results are paginated based on subsequent user intents
+                    speechOutput.append("The most popular is: ").append(item).append(". ");
+                    session.setAttribute(SESSION_CURRENT_INDEX, numberInList);
+                }
+
+                // Set the session attributes and full card output
+                session.setAttribute(Integer.toString(i), item);
+                cardOutput.append(numberInList).append(". ").append(item).append(".");
+                i++;
+            }
+
+            if (i == 0) {
+                // There were no items returned for the specified item.
+                SsmlOutputSpeech output = new SsmlOutputSpeech();
+                output.setSsml("<speak>I'm sorry, I cannot get the " + category
+                        + " for " + keywords + "at this time. Please try again later. Goodbye.</speak>");
+                return SpeechletResponse.newTellResponse(output);
+            }
+
+            speechOutput.append(" Would you like to hear the rest?");
+            repromptText = "Would you like to hear the rest? Please say yes or no.";
+
+            SimpleCard card = new SimpleCard();
+            card.setContent(cardOutput.toString());
+            card.setTitle(cardTitle);
+
+            SpeechletResponse response = newAskResponse("<speak>" + speechOutput.toString() + "</speak>", true,
+                    repromptText, false);
+            response.setCard(card);
+
+            return response;
+        } else {
+
+            // The category didn't match one of our predefined categories. Reprompt the user.
+            String speechOutput = "I'm not sure what the category is, please try again";
+            repromptText =
+                    "I'm not sure what the category is, you can say " +
+                "courses <break time=\"0.2s\" /> " +
+                "videos <break time=\"0.2s\" /> " +
+                "learning paths.";
+            return newAskResponse(speechOutput, false, "<speak>" + repromptText + "</speak>", true);
+        }
+    }
+
+    /**
      * Fetches the top ten selling titles from the Product Advertising API.
      *
      * @throws SpeechletException
      */
-    private List<String> fetchTitles(String category) throws SpeechletException {
+  private List<String> fetchTitles(String category, String keywords) throws SpeechletException {
         List<String> titles = new LinkedList<String>();
         try {
-          return LinkedInLearningApiHelper.summarize(LinkedInLearningApiHelper.search(category, ""), category);
+          return LinkedInLearningApiHelper.summarize(LinkedInLearningApiHelper.search(category, keywords), category);
         } catch (Exception e) {
           throw new SpeechletException(e);
         }
