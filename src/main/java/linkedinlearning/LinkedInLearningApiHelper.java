@@ -17,6 +17,22 @@ public class LinkedInLearningApiHelper {
 
   @JsonInclude(Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class Content {
+    
+    @JsonProperty("title")
+    public String title;
+    
+    @JsonProperty("slug")
+    public String slug;
+
+    @Override
+    public String toString() {
+      return ToStringBuilder.reflectionToString(this);
+    }
+  }    
+
+  @JsonInclude(Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   static class Paging {
     
     @JsonProperty("start")
@@ -36,10 +52,7 @@ public class LinkedInLearningApiHelper {
 
   @JsonInclude(Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
-  static class Course {
-    @JsonProperty("title")
-    String title;
-
+  static class Course extends Content {
     @JsonProperty("description")
     String description;
 
@@ -90,10 +103,7 @@ public class LinkedInLearningApiHelper {
 
   @JsonInclude(Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
-  static class LearningPath {
-    @JsonProperty("title")
-    String title;
-
+  static class LearningPath extends Content {
     @Override
     public String toString() {
         return ToStringBuilder.reflectionToString(this);
@@ -132,12 +142,45 @@ public class LinkedInLearningApiHelper {
   
   @JsonInclude(Include.NON_NULL)
   @JsonIgnoreProperties(ignoreUnknown = true)
+  static class SelectedVideo {
+    @JsonProperty("url")
+    Url url;
+
+    @Override
+    public String toString() {
+        return ToStringBuilder.reflectionToString(this);
+    }
+  }
+  
+  @JsonInclude(Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  static class Url {
+    @JsonProperty("progressiveUrl")
+    String progressiveUrl;
+
+    @JsonProperty("streamingUrl")
+    String streamingUrl;
+
+    @JsonProperty("expiresAt")
+    Long expiresAt;
+
+    @Override
+    public String toString() {
+        return ToStringBuilder.reflectionToString(this);
+    }
+  }
+
+  @JsonInclude(Include.NON_NULL)
+  @JsonIgnoreProperties(ignoreUnknown = true)
   static class Element {
     @JsonProperty("trackingId")
     String trackingId;
 
     @JsonProperty("hitInfo")
     HitInfo hitInfo;
+
+    @JsonProperty("selectedVideo")
+    SelectedVideo selectedVideo;
 
     @Override
     public String toString() {
@@ -173,19 +216,37 @@ public class LinkedInLearningApiHelper {
     return new ObjectMapper().readValue(conn.getInputStream(), SearchResults.class);
   }
 
-  public static List<String> summarize(SearchResults results, String category) {
+  public static List<Content> summarize(SearchResults results, String category) {
     if ("VIDEO".equals(category)) {
-      return results.elements.stream().map(el -> el.hitInfo.searchVideo.video.course.title).collect(Collectors.toList());
+      return results.elements.stream().map(el -> el.hitInfo.searchVideo.video.course).collect(Collectors.toList());
     } else if ("LEARNING_PATH".equals(category)) {
-      return results.elements.stream().map(el -> el.hitInfo.searchLearningPath.learningPath.title).collect(Collectors.toList());
+      return results.elements.stream().map(el -> el.hitInfo.searchLearningPath.learningPath).collect(Collectors.toList());
     } else {
-      return results.elements.stream().map(el -> el.hitInfo.searchCourse.course.title).collect(Collectors.toList());
+      return results.elements.stream().map(el -> el.hitInfo.searchCourse.course).collect(Collectors.toList());
     }
   }
 
+  public static SearchResults searchCourses(String slug) throws IOException {
+    URL url = new URL("https://www.linkedin.com/learning-api/detailedCourses?courseSlug=" + slug + "&q=slugs");
+
+    HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+
+    conn.setRequestMethod("GET");
+    conn.setRequestProperty("Cookie", "JSESSIONID=csrf");
+    conn.setRequestProperty("Csrf-Token", "csrf");
+
+    return new ObjectMapper().readValue(conn.getInputStream(), SearchResults.class);
+  }
+
+  public static String getPlaybackUrl(String slug) throws IOException {
+    return searchCourses(slug).elements.get(0).selectedVideo.url.progressiveUrl;
+  }
+
   public static void main(String[] args) throws Exception {
-    SearchResults results = search(args[0], "");
+    SearchResults results = search(args[0], args[1]);
     System.out.println("Results:\n" + results);
-    System.out.println("Summary:\n" + summarize(results, args[0]));
+    List<Content> contents = summarize(results, args[0]);
+    System.out.println("Summary:\n" + contents);
+    System.out.println("Url: " + getPlaybackUrl(contents.get(0).slug));
   }
 }

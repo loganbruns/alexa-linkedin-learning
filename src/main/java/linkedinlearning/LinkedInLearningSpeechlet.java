@@ -1,5 +1,8 @@
 package linkedinlearning;
 
+import static linkedinlearning.LinkedInLearningApiHelper.Content;
+
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -19,8 +22,10 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import com.amazon.speech.json.SpeechletRequestEnvelope;
 import com.amazon.speech.slu.Intent;
 import com.amazon.speech.slu.Slot;
+import com.amazon.speech.speechlet.Directive;
 import com.amazon.speech.speechlet.IntentRequest;
 import com.amazon.speech.speechlet.LaunchRequest;
 import com.amazon.speech.speechlet.Session;
@@ -29,6 +34,16 @@ import com.amazon.speech.speechlet.SessionStartedRequest;
 import com.amazon.speech.speechlet.Speechlet;
 import com.amazon.speech.speechlet.SpeechletException;
 import com.amazon.speech.speechlet.SpeechletResponse;
+import com.amazon.speech.speechlet.interfaces.audioplayer.AudioItem;
+import com.amazon.speech.speechlet.interfaces.audioplayer.AudioPlayer;
+import com.amazon.speech.speechlet.interfaces.audioplayer.PlayBehavior;
+import com.amazon.speech.speechlet.interfaces.audioplayer.Stream;
+import com.amazon.speech.speechlet.interfaces.audioplayer.directive.PlayDirective;
+import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackFailedRequest;
+import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackFinishedRequest;
+import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackNearlyFinishedRequest;
+import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackStartedRequest;
+import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackStoppedRequest;
 import com.amazon.speech.ui.OutputSpeech;
 import com.amazon.speech.ui.PlainTextOutputSpeech;
 import com.amazon.speech.ui.SsmlOutputSpeech;
@@ -80,7 +95,7 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
  * <p>
  * User: "No"
  */
-public class LinkedInLearningSpeechlet implements Speechlet {
+public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
     private static final Logger log = LoggerFactory.getLogger(LinkedInLearningSpeechlet.class);
 
     /**
@@ -167,8 +182,8 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             return getTopSellers(intent, session);
         } else if ("TeachMe".equals(intentName)) {
             return teachMe(intent, session);
-        } else if ("HearMore".equals(intentName)) {
-            return getNextPageOfItems(intent, session);
+        } else if ("HearMore".equals(intentName) || "AMAZON.NextIntent".equals(intentName)) {
+            return getNext(intent, session);
         } else if ("DontHearMore".equals(intentName)) {
             PlainTextOutputSpeech output = new PlainTextOutputSpeech();
             output.setText("");
@@ -197,6 +212,37 @@ public class LinkedInLearningSpeechlet implements Speechlet {
                 session.getSessionId());
 
         // any cleanup logic goes here
+    }
+
+    @Override
+    public SpeechletResponse onPlaybackFailed(SpeechletRequestEnvelope<PlaybackFailedRequest> requestEnvelope) {
+      PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
+      outputSpeech.setText("Sorry, we were not able to play the Linked In Learning audio stream.");
+
+      return SpeechletResponse.newTellResponse(outputSpeech);
+    }
+
+    @Override
+    public SpeechletResponse onPlaybackFinished(SpeechletRequestEnvelope<PlaybackFinishedRequest> requestEnvelope) {
+      PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
+      outputSpeech.setText("Would you like to listen to some more?");
+
+      return SpeechletResponse.newTellResponse(outputSpeech);
+    }
+
+    @Override
+    public SpeechletResponse onPlaybackNearlyFinished(SpeechletRequestEnvelope<PlaybackNearlyFinishedRequest> requestEnvelope) {
+      return null;
+    }
+
+    @Override
+    public SpeechletResponse onPlaybackStarted(SpeechletRequestEnvelope<PlaybackStartedRequest> requestEnvelope) {
+      return null;
+    }
+
+    @Override
+    public SpeechletResponse onPlaybackStopped(SpeechletRequestEnvelope<PlaybackStoppedRequest> requestEnvelope) {
+      return null;
     }
 
     /**
@@ -231,7 +277,7 @@ public class LinkedInLearningSpeechlet implements Speechlet {
         String category = categorySlot.getValue().replaceAll("\\.\\s*", "");
 
         if (lookupCategory != null) {
-          List<String> items = fetchTitles(lookupCategory, "");
+          List<Content> items = fetchTitles(lookupCategory, "");
 
             // Configure the card and speech output.
             String cardTitle = "Popular in " + category;
@@ -244,18 +290,18 @@ public class LinkedInLearningSpeechlet implements Speechlet {
             // Iterate through the response and set the intial response, as well as the
             // session attributes for pagination.
             int i = 0;
-            for (String item : items) {
+            for (Content item : items) {
                 int numberInList = i + 1;
                 if (numberInList == 1) {
                     // Set the speech output and current index for just the top item in the list.
                     // Other results are paginated based on subsequent user intents
-                    speechOutput.append("The most popular is: ").append(item).append(". ");
+                    speechOutput.append("The most popular is: ").append(item.title).append(". ");
                     session.setAttribute(SESSION_CURRENT_INDEX, numberInList);
                 }
 
                 // Set the session attributes and full card output
                 session.setAttribute(Integer.toString(i), item);
-                cardOutput.append(numberInList).append(". ").append(item).append(".");
+                cardOutput.append(numberInList).append(". ").append(item.title).append(".");
                 i++;
             }
 
@@ -267,8 +313,8 @@ public class LinkedInLearningSpeechlet implements Speechlet {
                 return SpeechletResponse.newTellResponse(output);
             }
 
-            speechOutput.append(" Would you like to hear the rest?");
-            repromptText = "Would you like to hear the rest? Please say yes or no.";
+	    speechOutput.append(" Would you like to listen to the introduction?");
+            repromptText = "Would you like to listen to the introduction? Please say yes or no.";
 
             SimpleCard card = new SimpleCard();
             card.setContent(cardOutput.toString());
@@ -338,31 +384,31 @@ public class LinkedInLearningSpeechlet implements Speechlet {
         }
 
         if (lookupCategory != null) {
-          List<String> items = fetchTitles(lookupCategory, keywords);
+          List<Content> items = fetchTitles(lookupCategory, keywords);
 
           // Configure the card and speech output.
           String cardTitle = "Popular " + category + " about " + keywords;
             StringBuilder cardOutput = new StringBuilder();
             cardOutput.append("Here are the ").append(category).append(" about ").append(keywords).append(": ");
             StringBuilder speechOutput = new StringBuilder();
-            speechOutput.append("Here are the ").append(category).append(" about ").append(keywords).append(".");
+            speechOutput.append("Here are the ").append(category).append(" about ").append(keywords);
             session.setAttribute(SESSION_CURRENT_CATEGORY, category);
 
             // Iterate through the response and set the intial response, as well as the
             // session attributes for pagination.
             int i = 0;
-            for (String item : items) {
+            for (Content item : items) {
                 int numberInList = i + 1;
                 if (numberInList == 1) {
                     // Set the speech output and current index for just the top item in the list.
                     // Other results are paginated based on subsequent user intents
-                    speechOutput.append("The most popular is: ").append(item).append(". ");
-                    session.setAttribute(SESSION_CURRENT_INDEX, numberInList);
+                    speechOutput.append("The most popular is: ").append(item.title);
+                    session.setAttribute(SESSION_CURRENT_INDEX, i);
                 }
 
                 // Set the session attributes and full card output
                 session.setAttribute(Integer.toString(i), item);
-                cardOutput.append(numberInList).append(". ").append(item).append(".");
+                cardOutput.append(numberInList).append(". ").append(item.title).append(".");
                 i++;
             }
 
@@ -374,8 +420,8 @@ public class LinkedInLearningSpeechlet implements Speechlet {
                 return SpeechletResponse.newTellResponse(output);
             }
 
-            speechOutput.append(" Would you like to hear the rest?");
-            repromptText = "Would you like to hear the rest? Please say yes or no.";
+	    speechOutput.append(" Would you like to listen to the course introduction?");
+            repromptText = "Would you like to listen to the introduction? Please say yes or no.";
 
             SimpleCard card = new SimpleCard();
             card.setContent(cardOutput.toString());
@@ -404,68 +450,73 @@ public class LinkedInLearningSpeechlet implements Speechlet {
      *
      * @throws SpeechletException
      */
-  private List<String> fetchTitles(String category, String keywords) throws SpeechletException {
-        List<String> titles = new LinkedList<String>();
-        try {
-          return LinkedInLearningApiHelper.summarize(LinkedInLearningApiHelper.search(category, keywords), category);
-        } catch (Exception e) {
-          throw new SpeechletException(e);
-        }
+  private List<Content> fetchTitles(String category, String keywords) throws SpeechletException {
+    try {
+      return LinkedInLearningApiHelper.summarize(LinkedInLearningApiHelper.search(category, keywords), category);
+    } catch (Exception e) {
+      throw new SpeechletException(e);
+    }
+  }
+
+  private SpeechletResponse getNext(final Intent intent, final Session session) {
+    List<Directive> directives = new LinkedList<Directive>();
+
+    if (session.getAttributes().containsKey(SESSION_CURRENT_INDEX)) {
+      StringBuilder speechOutput = new StringBuilder();
+
+      int currentIndex = (Integer) session.getAttribute(SESSION_CURRENT_INDEX);
+      Map<String, String> item = (Map<String, String>) session.getAttribute(Integer.toString(currentIndex));
+      if ((item != null) && (item.get("slug") != null)) {
+	try {
+	  speechOutput.append("Now playing ");
+	  speechOutput.append(item.get("title"));
+
+	  String playbackUrl = LinkedInLearningApiHelper.getPlaybackUrl(item.get("slug"));
+
+	  Stream stream = new Stream();
+	  stream.setUrl(playbackUrl);
+	  stream.setToken(item.get("slug"));
+
+	  AudioItem audio = new AudioItem();
+	  audio.setStream(stream);
+
+	  PlayDirective play = new PlayDirective();
+	  play.setAudioItem(audio);
+	  play.setPlayBehavior(PlayBehavior.REPLACE_ALL);
+
+	  directives.add(play);
+	} catch (IOException e) {
+	  log.error("Unable to retrieve playback url for slug=" + item.get("slug"), e);
+	}
+      }
+
+      currentIndex++;
+      if (session.getAttributes().containsKey(Integer.toString(currentIndex))) {
+	session.setAttribute(SESSION_CURRENT_INDEX, Integer.toString(currentIndex));
+      } else {
+	session.setAttribute(SESSION_CURRENT_INDEX, null);
+      }
+
+      if (!directives.isEmpty()) {
+	SsmlOutputSpeech output = new SsmlOutputSpeech();
+	output.setSsml("<speak>" + speechOutput.toString() + "</speak>");
+
+	SpeechletResponse response = SpeechletResponse.newTellResponse(output);
+	response.setDirectives(directives);
+
+	return response;
+      }
     }
 
-    /**
-     * Gets the 2nd-MAX_ITEMS number of titles from the session attributes.
-     */
-    private SpeechletResponse getNextPageOfItems(final Intent intent, final Session session) {
-        if (session.getAttributes().containsKey(SESSION_CURRENT_INDEX)) {
-            int currentIndex = (Integer) session.getAttribute(SESSION_CURRENT_INDEX);
-            int currentItemNumberInList = currentIndex + 1;
-            StringBuilder speechOutput = new StringBuilder();
-
-            // Iterate through the session attributes to create the next n results for the user.
-            for (int i = 0; i < PAGINATION_SIZE; i++) {
-                String currentString =
-                        (String) session.getAttribute(Integer.toString(currentIndex));
-                if (currentString != null) {
-                    if (currentItemNumberInList < MAX_ITEMS) {
-                        speechOutput.append("<say-as interpret-as=\"ordinal\">" + currentItemNumberInList
-                                + "</say-as>. " + currentString + ". ");
-                    } else {
-                        speechOutput.append("And the <say-as interpret-as=\"ordinal\">"
-                                + currentItemNumberInList
-                                + "</say-as> most popular content is. " + currentString
-                                + ". Those were the 10 most popular in Linked In Learning "
-                                + session.getAttribute(SESSION_CURRENT_CATEGORY) + " content");
-                    }
-                    currentIndex++;
-                    currentItemNumberInList++;
-                }
-            }
-
-            // Set the new index and end the session if the newIndex is greater than the MAX_ITEMS
-            session.setAttribute(SESSION_CURRENT_INDEX, currentIndex);
-            if (currentIndex < MAX_ITEMS) {
-                speechOutput.append(" Would you like to hear more?");
-                return newAskResponse(speechOutput.toString(), true,
-                        "Would you like to hear more popular content? Please say yes or no.", false);
-            } else {
-                SsmlOutputSpeech output = new SsmlOutputSpeech();
-                output.setSsml("<speak>" + speechOutput.toString() + "</speak>");
-                return SpeechletResponse.newTellResponse(output);
-            }
-        } else {
-            // The user attempted to get more results without ever uttering the category.
-            // Reprompt the user for the proper usage.
-            String speechOutput =
-                    "Welcome to Linked In Learning. For which category do you want "
-                            + "to hear the popular content?.";
-            String repromptText = "Please choose a category by saying, " +
-                "courses <break time=\"0.2s\" /> " +
-                "videos <break time=\"0.2s\" /> " +
-                "learning paths";
-            return newAskResponse(speechOutput, false, "<speak>" + repromptText + "</speak>", true);
-        }
-    }
+    String repromptText =
+      "<speak>I'm sorry I didn't understand that. You can say things like," +
+      "teach me about java <break time=\"0.2s\" /> " +
+      "help me with excel <break time=\"0.2s\" /> " +
+      "courses <break time=\"0.2s\" /> " +
+      "videos <break time=\"0.2s\" /> " +
+      "learning paths. Or you can say exit. Now, what can I help you with?</speak>";
+    return newAskResponse("What else would you like to learn about?", false, repromptText, true);
+  }
 
     /**
      * Gets the lookup word based on the input category slot. The lookup word will be from the
@@ -503,11 +554,12 @@ public class LinkedInLearningSpeechlet implements Speechlet {
      */
     private SpeechletResponse getHelp() {
         String speechOutput =
-                "You can ask for the popular content on Linked In Learning for a given category. "
-                        + "For example, get popular courses, or you can say exit. "
+	    "You can ask about content. For example, teach me about Java, or get popular courses, or you can say exit."
                         + "Now, what can I help you with?";
         String repromptText =
                 "I'm sorry I didn't understand that. You can say things like," +
+                "teach me about java <break time=\"0.2s\" /> " +
+                "help me with excel <break time=\"0.2s\" /> " +
                 "courses <break time=\"0.2s\" /> " +
                 "videos <break time=\"0.2s\" /> " +
                 "learning paths. Or you can say exit. Now, what can I help you with?";

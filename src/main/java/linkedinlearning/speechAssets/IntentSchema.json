@@ -40,6 +40,15 @@
     },
     {
       "intent": "AMAZON.CancelIntent"
+    },
+    {
+      "intent": "AMAZON.ResumeIntent"
+    },
+    {
+      "intent": "AMAZON.PauseIntent"
+    },
+    {
+      "intent": "AMAZON.NextIntent"
     }
   ]
 }
