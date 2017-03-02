@@ -36,9 +36,11 @@ import com.amazon.speech.speechlet.SpeechletException;
 import com.amazon.speech.speechlet.SpeechletResponse;
 import com.amazon.speech.speechlet.interfaces.audioplayer.AudioItem;
 import com.amazon.speech.speechlet.interfaces.audioplayer.AudioPlayer;
+import com.amazon.speech.speechlet.interfaces.audioplayer.ClearBehavior;
 import com.amazon.speech.speechlet.interfaces.audioplayer.PlayBehavior;
 import com.amazon.speech.speechlet.interfaces.audioplayer.Stream;
 import com.amazon.speech.speechlet.interfaces.audioplayer.directive.PlayDirective;
+import com.amazon.speech.speechlet.interfaces.audioplayer.directive.ClearQueueDirective;
 import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackFailedRequest;
 import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackFinishedRequest;
 import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackNearlyFinishedRequest;
@@ -107,6 +109,12 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
      * The key to find the current category from the session attributes.
      */
     private static final String SESSION_CURRENT_CATEGORY = "category";
+
+
+    /**
+     * The key to find the current category from the session attributes.
+     */
+    private static final String SESSION_CURRENT_START = "offset";
 
     /**
      * The Max number of items for Alexa to read from a request to Amazon.
@@ -190,11 +198,50 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
             return SpeechletResponse.newTellResponse(output);
         } else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelp();
+        } else if ("AMAZON.PauseIntent".equals(intentName)) {
+	    List<Directive> directives = new LinkedList<Directive>();
+
+	    long offset = System.currentTimeMillis();
+	    String start = (String) session.getAttribute(SESSION_CURRENT_START);
+	    if ((start != null) && (Long.parseLong(start) < offset)) {
+		session.setAttribute(SESSION_CURRENT_START,
+				     Long.toString((offset - Long.parseLong(start))));
+
+		ClearQueueDirective clearQueue = new ClearQueueDirective();
+		clearQueue.setClearBehavior(ClearBehavior.CLEAR_ALL);
+		directives.add(clearQueue);
+	    }
+
+            PlainTextOutputSpeech output = new PlainTextOutputSpeech();
+            output.setText("");
+            SpeechletResponse response = SpeechletResponse.newTellResponse(output);
+	    if (!directives.isEmpty()) {
+		response.setDirectives(directives);
+		response.setShouldEndSession(false);
+	    }
+
+	    return response;
+        } else if ("AMAZON.ResumeIntent".equals(intentName)) {
+	    session.setAttribute(SESSION_CURRENT_INDEX, ((Integer)session.getAttribute(SESSION_CURRENT_INDEX)).intValue() - 1);
+	    return getNext(intent, session);
         } else if ("AMAZON.StopIntent".equals(intentName)) {
+	    List<Directive> directives = new LinkedList<Directive>();
+
             PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
             outputSpeech.setText("Goodbye");
 
-            return SpeechletResponse.newTellResponse(outputSpeech);
+	    if (session.getAttributes().containsKey(SESSION_CURRENT_START)) {
+		ClearQueueDirective clearQueue = new ClearQueueDirective();
+		clearQueue.setClearBehavior(ClearBehavior.CLEAR_ALL);
+		directives.add(clearQueue);
+	    }
+
+            SpeechletResponse response = SpeechletResponse.newTellResponse(outputSpeech);
+	    if (!directives.isEmpty()) {
+		response.setDirectives(directives);
+	    }
+
+	    return response;
         } else if ("AMAZON.CancelIntent".equals(intentName)) {
             PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
             outputSpeech.setText("Goodbye");
@@ -477,6 +524,12 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
 	  stream.setUrl(playbackUrl);
 	  stream.setToken(item.get("slug"));
 
+	  long offset = System.currentTimeMillis();
+	  String start = (String) session.getAttribute(SESSION_CURRENT_START);
+	  if ((start != null) && (Long.parseLong(start) < offset)) {
+	      stream.setOffsetInMilliseconds(Long.parseLong(start));
+	  }
+
 	  AudioItem audio = new AudioItem();
 	  audio.setStream(stream);
 
@@ -485,6 +538,8 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
 	  play.setPlayBehavior(PlayBehavior.REPLACE_ALL);
 
 	  directives.add(play);
+
+	  session.setAttribute(SESSION_CURRENT_START, Long.toString(System.currentTimeMillis()));
 	} catch (IOException e) {
 	  log.error("Unable to retrieve playback url for slug=" + item.get("slug"), e);
 	}
@@ -492,7 +547,7 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
 
       currentIndex++;
       if (session.getAttributes().containsKey(Integer.toString(currentIndex))) {
-	session.setAttribute(SESSION_CURRENT_INDEX, Integer.toString(currentIndex));
+	session.setAttribute(SESSION_CURRENT_INDEX, currentIndex);
       } else {
 	session.setAttribute(SESSION_CURRENT_INDEX, null);
       }
@@ -503,6 +558,7 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
 
 	SpeechletResponse response = SpeechletResponse.newTellResponse(output);
 	response.setDirectives(directives);
+	response.setShouldEndSession(false);
 
 	return response;
       }
