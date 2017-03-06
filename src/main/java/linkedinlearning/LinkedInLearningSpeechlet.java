@@ -201,12 +201,24 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
             return getTopSellers(intent, session);
         } else if ("TeachMe".equals(intentName)) {
             return teachMe(intent, session);
-        } else if ("HearMore".equals(intentName) || "AMAZON.NextIntent".equals(intentName)) {
+        } else if ("HearMore".equals(intentName)) {
             return getNext(intent, session);
         } else if ("DontHearMore".equals(intentName)) {
-            PlainTextOutputSpeech output = new PlainTextOutputSpeech();
-            output.setText("");
-            return SpeechletResponse.newTellResponse(output);
+	  if (session.getAttributes().containsKey(SESSION_CURRENT_INDEX)) {
+	    int i = (Integer) session.getAttribute(SESSION_CURRENT_INDEX) + 1;
+	    session.setAttribute(SESSION_CURRENT_INDEX, i);
+	    
+	    Map<String, String> item = (Map<String, String>) session.getAttribute(Integer.toString(i));
+	    if ((item != null) && (item.get("slug") != null)) {
+
+	      return newAskResponse("Would you like to listen to the course introduction of " + item.get("title"), false,
+				    "Would you like to listen to the introduction? Please say yes or no or exit.", false);
+	    }
+	  }	  
+
+	  PlainTextOutputSpeech output = new PlainTextOutputSpeech();
+	  output.setText("");
+	  return SpeechletResponse.newTellResponse(output);
         } else if ("AMAZON.HelpIntent".equals(intentName)) {
             return getHelp();
         } else if ("AMAZON.PauseIntent".equals(intentName)) {
@@ -228,7 +240,7 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
 	    return response;
         } else if ("AMAZON.ResumeIntent".equals(intentName)) {
 	    return getNext(intent, session);
-        } else if ("AMAZON.StopIntent".equals(intentName)) {
+        } else if ("AMAZON.StopIntent".equals(intentName) || "AMAZON.NextIntent".equals(intentName)) {
 	    List<Directive> directives = new LinkedList<Directive>();
 
             PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
@@ -441,7 +453,7 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
             speechOutput.append("Here are the ").append(category).append(" about ").append(keywords);
             session.setAttribute(SESSION_CURRENT_CATEGORY, category);
 
-            // Iterate through the response and set the intial response, as well as the
+            // Iterate through the response and set the initial response, as well as the
             // session attributes for pagination.
             int i = 0;
             for (Content item : items) {
