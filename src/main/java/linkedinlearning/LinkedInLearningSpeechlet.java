@@ -1,5 +1,9 @@
 package linkedinlearning;
 
+import linkedinlearning.storage.LearningUserData;
+import linkedinlearning.storage.LinkedInLearningDao;
+import linkedinlearning.storage.LinkedInLearningDbClient;
+
 import static linkedinlearning.LinkedInLearningApiHelper.Content;
 
 import java.io.IOException;
@@ -40,6 +44,7 @@ import com.amazon.speech.speechlet.interfaces.audioplayer.ClearBehavior;
 import com.amazon.speech.speechlet.interfaces.audioplayer.PlayBehavior;
 import com.amazon.speech.speechlet.interfaces.audioplayer.Stream;
 import com.amazon.speech.speechlet.interfaces.audioplayer.directive.PlayDirective;
+import com.amazon.speech.speechlet.interfaces.audioplayer.directive.StopDirective;
 import com.amazon.speech.speechlet.interfaces.audioplayer.directive.ClearQueueDirective;
 import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackFailedRequest;
 import com.amazon.speech.speechlet.interfaces.audioplayer.request.PlaybackFinishedRequest;
@@ -52,6 +57,7 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
 import com.amazon.speech.ui.Reprompt;
 import com.amazon.speech.ui.SimpleCard;
 import com.amazon.speech.ui.SsmlOutputSpeech;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 
 /**
  *
@@ -73,9 +79,9 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
  * <p>
  * <b>Dialog model</b>
  * <p>
- * User: "Alexa, open LinkedIn Learning"
+ * User: "Alexa, open Online Learning"
  * <p>
- * Alexa: "Welcome to the LinkedIn Learning. For which category do you want to hear the popular content?"
+ * Alexa: "Welcome to Unofficial LinkedIn Learning. For which category do you want to hear the popular content?"
  * <p>
  * User: "courses"
  * <p>
@@ -90,7 +96,7 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
  * <p>
  * <b>One-shot model</b>
  * <p>
- * User: "Alexa, ask LinkedIn Learning for popular courses"
+ * User: "Alexa, ask Online Learning for popular courses"
  * <p>
  * Alexa: "Getting the popular courses. The most popular course is .... Would you like to
  * hear more?"
@@ -98,6 +104,8 @@ import com.amazon.speech.ui.SsmlOutputSpeech;
  * User: "No"
  */
 public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
+  private LinkedInLearningDao _dao;
+
     private static final Logger log = LoggerFactory.getLogger(LinkedInLearningSpeechlet.class);
 
     /**
@@ -158,6 +166,7 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
                 session.getSessionId());
 
         // any initialization logic goes here
+	_init();
     }
 
     @Override
@@ -167,7 +176,7 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
                 session.getSessionId());
 
         String speechOutput =
-          "Welcome to Linked In Learning. You can ask about a particular topic or ask for the most popular content in a category.";
+          "Welcome to Unofficial Linked In Learning. You can ask about a particular topic or ask for the most popular content in a category.";
         String repromptText = "Please choose a category by saying, " +
                 "courses <break time=\"0.2s\" /> " +
                 "videos <break time=\"0.2s\" /> " +
@@ -182,6 +191,8 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
             throws SpeechletException {
         log.info("onIntent requestId={}, sessionId={}", request.getRequestId(),
                 session.getSessionId());
+
+	_init();
 
         Intent intent = request.getIntent();
         String intentName = (intent != null) ? intent.getName() : null;
@@ -201,28 +212,21 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
         } else if ("AMAZON.PauseIntent".equals(intentName)) {
 	    List<Directive> directives = new LinkedList<Directive>();
 
-	    long offset = System.currentTimeMillis();
-	    String start = (String) session.getAttribute(SESSION_CURRENT_START);
-	    if ((start != null) && (Long.parseLong(start) < offset)) {
-		session.setAttribute(SESSION_CURRENT_START,
-				     Long.toString((offset - Long.parseLong(start))));
+	    LearningUserData userData = _dao.getUserData(session);
 
-		ClearQueueDirective clearQueue = new ClearQueueDirective();
-		clearQueue.setClearBehavior(ClearBehavior.CLEAR_ALL);
-		directives.add(clearQueue);
-	    }
+	    userData.setOffset(System.currentTimeMillis() - userData.getStart() + userData.getOffset());
+
+	    _dao.saveUserData(session, userData);
+
+	    directives.add(new StopDirective());
 
             PlainTextOutputSpeech output = new PlainTextOutputSpeech();
             output.setText("");
             SpeechletResponse response = SpeechletResponse.newTellResponse(output);
-	    if (!directives.isEmpty()) {
-		response.setDirectives(directives);
-		response.setShouldEndSession(false);
-	    }
+	    response.setDirectives(directives);
 
 	    return response;
         } else if ("AMAZON.ResumeIntent".equals(intentName)) {
-	    session.setAttribute(SESSION_CURRENT_INDEX, ((Integer)session.getAttribute(SESSION_CURRENT_INDEX)).intValue() - 1);
 	    return getNext(intent, session);
         } else if ("AMAZON.StopIntent".equals(intentName)) {
 	    List<Directive> directives = new LinkedList<Directive>();
@@ -230,16 +234,12 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
             PlainTextOutputSpeech outputSpeech = new PlainTextOutputSpeech();
             outputSpeech.setText("Goodbye");
 
-	    if (session.getAttributes().containsKey(SESSION_CURRENT_START)) {
-		ClearQueueDirective clearQueue = new ClearQueueDirective();
-		clearQueue.setClearBehavior(ClearBehavior.CLEAR_ALL);
-		directives.add(clearQueue);
-	    }
+	    ClearQueueDirective clearQueue = new ClearQueueDirective();
+	    clearQueue.setClearBehavior(ClearBehavior.CLEAR_ALL);
+	    directives.add(clearQueue);
 
             SpeechletResponse response = SpeechletResponse.newTellResponse(outputSpeech);
-	    if (!directives.isEmpty()) {
-		response.setDirectives(directives);
-	    }
+	    response.setDirectives(directives);
 
 	    return response;
         } else if ("AMAZON.CancelIntent".equals(intentName)) {
@@ -508,49 +508,56 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
   private SpeechletResponse getNext(final Intent intent, final Session session) {
     List<Directive> directives = new LinkedList<Directive>();
 
-    if (session.getAttributes().containsKey(SESSION_CURRENT_INDEX)) {
-      StringBuilder speechOutput = new StringBuilder();
+    LearningUserData userData = _dao.getUserData(session);
 
+    log.info("DEBUGDEBUG: getNext userData={}", userData.toString());
+
+    if (session.getAttributes().containsKey(SESSION_CURRENT_INDEX)) {
       int currentIndex = (Integer) session.getAttribute(SESSION_CURRENT_INDEX);
       Map<String, String> item = (Map<String, String>) session.getAttribute(Integer.toString(currentIndex));
       if ((item != null) && (item.get("slug") != null)) {
-	try {
-	  speechOutput.append("Now playing ");
-	  speechOutput.append(item.get("title"));
-
-	  String playbackUrl = LinkedInLearningApiHelper.getPlaybackUrl(item.get("slug"));
-
-	  Stream stream = new Stream();
-	  stream.setUrl(playbackUrl);
-	  stream.setToken(item.get("slug"));
-
-	  long offset = System.currentTimeMillis();
-	  String start = (String) session.getAttribute(SESSION_CURRENT_START);
-	  if ((start != null) && (Long.parseLong(start) < offset)) {
-	      stream.setOffsetInMilliseconds(Long.parseLong(start));
-	  }
-
-	  AudioItem audio = new AudioItem();
-	  audio.setStream(stream);
-
-	  PlayDirective play = new PlayDirective();
-	  play.setAudioItem(audio);
-	  play.setPlayBehavior(PlayBehavior.REPLACE_ALL);
-
-	  directives.add(play);
-
-	  session.setAttribute(SESSION_CURRENT_START, Long.toString(System.currentTimeMillis()));
-	} catch (IOException e) {
-	  log.error("Unable to retrieve playback url for slug=" + item.get("slug"), e);
-	}
-      }
-
-      currentIndex++;
-      if (session.getAttributes().containsKey(Integer.toString(currentIndex))) {
-	session.setAttribute(SESSION_CURRENT_INDEX, currentIndex);
+	userData.setTitle(item.get("title"));
+	userData.setSlug(item.get("slug"));
       } else {
-	session.setAttribute(SESSION_CURRENT_INDEX, null);
+	userData.setTitle(null);
+	userData.setSlug(null);
       }
+
+      userData.setOffset(0L);
+      userData.setStart(0L);
+    }
+
+    if (userData.getSlug() != null) {
+      StringBuilder speechOutput = new StringBuilder();
+
+      try {
+	speechOutput.append("Now playing ");
+	speechOutput.append(userData.getTitle());
+
+	String slug = userData.getSlug();
+	String playbackUrl = LinkedInLearningApiHelper.getPlaybackUrl(slug);
+
+	Stream stream = new Stream();
+	stream.setUrl(playbackUrl);
+	stream.setToken(slug);
+	stream.setOffsetInMilliseconds(userData.getOffset());
+
+	AudioItem audio = new AudioItem();
+	audio.setStream(stream);
+
+	PlayDirective play = new PlayDirective();
+	play.setAudioItem(audio);
+	play.setPlayBehavior(PlayBehavior.REPLACE_ALL);
+
+	directives.add(play);
+
+	userData.setStart(System.currentTimeMillis());
+	userData.setTotalVideos(userData.getTotalVideos() + 1L);
+      } catch (IOException e) {
+	log.error("Unable to retrieve playback url for slug=" + userData.getSlug(), e);
+      }
+
+      _dao.saveUserData(session, userData);
 
       if (!directives.isEmpty()) {
 	SsmlOutputSpeech output = new SsmlOutputSpeech();
@@ -558,7 +565,6 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
 
 	SpeechletResponse response = SpeechletResponse.newTellResponse(output);
 	response.setDirectives(directives);
-	response.setShouldEndSession(false);
 
 	return response;
       }
@@ -611,7 +617,7 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
     private SpeechletResponse getHelp() {
         String speechOutput =
 	    "You can ask about content. For example, teach me about Java, or get popular courses, or you can say exit."
-                        + "Now, what can I help you with?";
+                        + " Now, what can I help you with?";
         String repromptText =
                 "I'm sorry I didn't understand that. You can say things like," +
                 "teach me about java <break time=\"0.2s\" /> " +
@@ -657,4 +663,10 @@ public class LinkedInLearningSpeechlet implements Speechlet, AudioPlayer {
         reprompt.setOutputSpeech(repromptOutputSpeech);
         return SpeechletResponse.newAskResponse(outputSpeech, reprompt);
     }
+
+  private void _init() {
+    if (_dao == null) {
+      _dao = new LinkedInLearningDao(new LinkedInLearningDbClient(new AmazonDynamoDBClient()));
+    }
+  }
 }

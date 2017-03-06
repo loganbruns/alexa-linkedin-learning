@@ -32,16 +32,21 @@ Until this has more features and is published you have to deploy it as a lambda 
 6. Go to the the root directory containing pom.xml, and run 'mvn assembly:assembly -DdescriptorId=jar-with-dependencies package'. This will generate a zip file named "alexa-linkedin-learning-1.0-jar-with-dependencies.jar" in the target directory.
 7. Select Code entry type as "Upload a .ZIP file" and then upload the "alexa-linkedin-learning-1.0-jar-with-dependencies.jar" file from the build directory to Lambda
 8. Set the Handler as linkedinlearning.LinkedInLearningSpeechletRequestStreamHandler (this refers to the Lambda RequestStreamHandler file in the zip).
-9. Create a basic execution role and click create.
+9. Create a "Basic with DynamoDB" role and click create.
 10. Leave the Advanced settings as the defaults.
 11. Click "Next" and review the settings then click "Create Function"
 12. Click the "Event Sources" tab and select "Add event source"
 13. Set the Event Source type as Alexa Skills kit and Enable it now. Click Submit.
 14. Copy the ARN from the top right to be used later in the Alexa Skill Setup.
 
+### AWS DynamoDB Setup
+1. Go to the AWS Console and click on [DynamoDB link](https://console.aws.amazon.com/dynamodb). Note: ensure you are in us-east (same as your Lambda)
+2. Click on CreateTable: set "LinkedInLearningUserData" as the table name, use String for the primary key type and set "CustomerId" as the hash attribute name.
+3. Continue the steps with the default settings to finish the setup of DynamoDB table.
+
 ### Alexa Skill Setup
 1. Go to the [Alexa Console](https://developer.amazon.com/edw/home.html) and click Add a New Skill.
-2. Set "LinkedIn Learning" as the skill name and "linked in learning" as the invocation name, this is what is used to activate your skill. For example you would say: "Alexa, Ask LinkedIn Learning about popular courses."
+2. Set "LinkedIn Learning" as the skill name and "online learning" as the invocation name, this is what is used to activate your skill. For example you would say: "Alexa, Ask Online Learning about popular courses."
 3. Select the Lambda ARN for the skill Endpoint and paste the ARN copied from above. Click Next.
 4. Copy the custom slot types from the customSlotTypes folder. Each file in the folder represents a new custom slot type. The name of the file is the name of the custom slot type, and the values in the file are the values for the custom slot.
 5. Copy the Intent Schema from the included IntentSchema.json.
@@ -54,18 +59,18 @@ Until this has more features and is published you have to deploy it as a lambda 
 
 ## Examples
 ### One-shot model
-     User:  "Alexa, ask LinkedIn Learning about popular courses"
+     User:  "Alexa, ask Online Learning about popular courses"
      Alexa: "Here are the popular in courses. The most popular is .... Would you like
              to hear more?"
      User:  "No"
 
-     User:  "Alexa, ask LinkedIn Learning about Java"
+     User:  "Alexa, ask Online Learning about Java"
      Alexa: "Here are the courses about Java. The most popular is .... Would you like
              to hear more?"
      User:  "No"
 
 ### Dialog model:
-     User:  "Alexa, open LinkedIn Learning"
+     User:  "Alexa, open Online Learning"
      Alexa: "Welcome to LinkedIn Learning. You can ask about a particular topic or ask for the most popular content in a category."
      User:  "courses"
      Alexa: "Here are the popular in courses. The most popular is .... Would you like
