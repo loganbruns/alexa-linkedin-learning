@@ -9,6 +9,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.net.ssl.HttpsURLConnection;
@@ -205,7 +206,9 @@ public class LinkedInLearningApiHelper {
   }
 
   public static SearchResults search(String category, String keywords) throws IOException {
-    URL url = new URL("https://www.linkedin.com/learning-api/search?q=search&entityType=" + category + "&keywords=" + keywords);
+    URL url = new URL("https://www.linkedin.com/learning-api/search?q=search&entityType=" +
+		      URLEncoder.encode(category, "UTF-8") +
+		      "&keywords=" + URLEncoder.encode(keywords, "UTF-8"));
 
     HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
 
@@ -227,7 +230,8 @@ public class LinkedInLearningApiHelper {
   }
 
   public static SearchResults searchCourses(String slug) throws IOException {
-    URL url = new URL("https://www.linkedin.com/learning-api/detailedCourses?courseSlug=" + slug + "&q=slugs");
+    URL url = new URL("https://www.linkedin.com/learning-api/detailedCourses?courseSlug=" +
+		      URLEncoder.encode(slug, "UTF-8") + "&q=slugs");
 
     HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
 
